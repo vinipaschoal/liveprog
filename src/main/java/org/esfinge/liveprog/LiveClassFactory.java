@@ -42,6 +42,9 @@ public class LiveClassFactory implements ILiveClassUpdateObserver, ILiveClassDBV
 	// gerenciador do banco de dados
 	private ILiveClassDB dbManager;
 	
+	// indica se a factory esta rodando em modo de teste ou de producao
+	private boolean factoryTestMode;
+	
 
 	/**
 	 * Cria uma nova fabrica para a criacao de objetos de classes dinamicas.
@@ -51,6 +54,20 @@ public class LiveClassFactory implements ILiveClassUpdateObserver, ILiveClassDBV
 	 */
 	LiveClassFactory(ILiveClassDB dbManager) throws Exception
 	{
+		
+		this(dbManager, false);
+	}
+
+	/**
+	 * Cria uma nova fabrica para a criacao de objetos de classes dinamicas.
+	 * 
+	 * @param dbManager gerenciador para a persistencia de classes dinamicas
+	 * @param testMode <b>true</b> para a fabrica executar em modo de testes - usa sempre a versao mais recente da classe dinamica,
+	 * <b>false</b> para executar em modo de producao
+	 * @throws Exception caso ocorra algum erro interno de inicializacao
+	 */
+	LiveClassFactory(ILiveClassDB dbManager, boolean testMode) throws Exception
+	{
 		this.classLoader = new LiveClassLoader();
 		this.mapProxiesTest = new HashMap<String, List<ILiveClassObserver>>();
 		this.mapProxiesProd = new HashMap<String, List<ILiveClassObserver>>();
@@ -58,6 +75,7 @@ public class LiveClassFactory implements ILiveClassUpdateObserver, ILiveClassDBV
 		this.cacheLiveClassesTest = new HashMap<String, Class<?>>();
 		this.cacheLiveClassesProd = new HashMap<String, Class<?>>();
 		this.dbManager = dbManager;
+		this.factoryTestMode = testMode;
 	}
 	
 	/**
@@ -73,7 +91,7 @@ public class LiveClassFactory implements ILiveClassUpdateObserver, ILiveClassDBV
 	 */
 	public <L> L createLiveObject(Class<L> objClass) throws IncompatibleLiveClassException
 	{
-		return ( this.createLiveObject(objClass, false) );
+		return ( this.createLiveObject(objClass, this.factoryTestMode || false) );
 	}
 
 	/**
@@ -130,6 +148,11 @@ public class LiveClassFactory implements ILiveClassUpdateObserver, ILiveClassDBV
 	@Override
 	public void liveClassCommitted(String className)
 	{
+		// verifica se a factory esta em modo de testes
+		// se estiver, todos os objetos sao criados em modo teste, utilizando a versao mais atual
+		if ( this.factoryTestMode )
+			return;
+		
 		try
 		{
 			// obtem as informacoes da classe dinamica (modo producao)
@@ -175,11 +198,16 @@ public class LiveClassFactory implements ILiveClassUpdateObserver, ILiveClassDBV
 
 			// atualiza os caches
 			this.cacheLiveClassesTest.put(className, newLiveClass);
-			this.cacheLiveClassesProd.put(className, newLiveClass);
 			
 			// notifica os proxies
 			this.notifyProxies(className, newLiveClass, true);
-			this.notifyProxies(className, newLiveClass, false);
+			
+			// verifica se a factory esta em modo producao
+			if (! this.factoryTestMode )
+			{
+				this.cacheLiveClassesProd.put(className, newLiveClass);
+				this.notifyProxies(className, newLiveClass, false);
+			}
 			
 			// notifica os observadores externos
 			this.notifyExternalObservers(className, newLiveClass);

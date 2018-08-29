@@ -11,6 +11,9 @@ import org.esfinge.liveprog.monitor.ILiveClassFileMonitor;
  */
 public class LiveClassFactoryBuilder
 {
+	// modo que a fabrica sera criada
+	private boolean factoryTestMode;
+	
 	// monitor de arquivos de novas versoes de classes dinamicas
 	private ILiveClassFileMonitor fileMonitor;
 	
@@ -35,7 +38,20 @@ public class LiveClassFactoryBuilder
 	 */
 	public LiveClassFactoryBuilder() throws Exception
 	{
+		this.factoryTestMode = false;
 		this.updateManager = new LiveClassUpdateManager();
+	}
+	
+	/**
+	 * Inicializa a criacao de uma fabrica de objetos dinamicos em modo de testes.
+	 * 
+	 * @throws Exception em caso de erro na criacao de algum componente interno
+	 * @see org.esfinge.liveprog.LiveClassFactory#LiveClassFactory(boolean)
+	 */
+	public LiveClassFactoryBuilder inTestMode() throws Exception
+	{
+		this.factoryTestMode = true;
+		return ( this );
 	}
 	
 	/**
@@ -179,7 +195,7 @@ public class LiveClassFactoryBuilder
 			}
 
 			// cria a fabrica
-			LiveClassFactory factory = new LiveClassFactory(dbManager);
+			LiveClassFactory factory = new LiveClassFactory(dbManager, factoryTestMode);
 
 			// configura os observadores
 			if ( versionManager != null )
